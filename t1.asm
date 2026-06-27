@@ -1,8 +1,11 @@
 assume cs:code, ds:data, ss:stack
-;==========================实验10.1显示字符串
+;==========================实验10.2解决除法溢出问题
+; div指令用于做除法，当进行8位除法时，al存储商，ah存储余数
+;                   16位除法时，ax存储商，dx存储余数
+; 但是如果结果的商大于 al 或者 ax存储的最大值，就会溢出
+; 例如100000(32bit)/10(16bit) = 100000(16bit)，结果显然超出了ax的范围
 data segment
-	db 'hello hsl, hello world!',0
-	db 'nihao shijie wo shi hsl',0
+	db 16 dup(0)
 data ends
 
 
@@ -24,61 +27,66 @@ start:
 
 	; 2.初始化寄存器
 	call init_reg
-	; 3.设置行和列
-	mov dl, 1			; 行 0-24
-	mov dh, 13			; 列 0-79
-	; 4.调用计算列
-	call get_col		; 将行与列转化成列号，结果存在bx中
 
-	add bx, bx			; 将列号乘以2，因为每个字符占用2个字节
+	; 3. 计算结果
+	call calDivdw
 
-	mov cl, 10000010b	; 颜色，此处为绿色
-	mov si, 0			; 指向字符串首地址的指针
-
-	call showString
 
 	mov ax,4c00H
 	int 21h
+
+;====================初始化寄存器
 init_reg:
 
 	mov ax, data
 	mov ds, ax
+	; 输入被除数和除数
+	call inputDivNum
 
-	mov ax, 0B800H
-	mov es, ax
 
 	ret
 
 
-;===================计算行对应的列数，将结果存入bx中
-get_col:
-	mov al, dl
-	mov ah, 80
-	mul ah
-	mov dl, dh
-	mov dh, 0
-	add ax, dx
-	mov bx, ax
+;====================将被除数和除数放入寄存器中
+inputDivNum:
+	; 1. 放入被除数
+	mov dx, 0FH
+	mov ax, 4240H
+	; 2. 放入除数
+	mov cx, 10
+
 	ret
 
 
-showString:
+;==================计算商
+calDivdw:
+	; 实现的公式 X/N = int(H/N)*65536 + [rem(H/N) * 65536 + L] / N
+	; 保存32位被除数
+
+	push ax
+	; int(H/N)
+	mov ax, dx
+	mov dx, 0
+	div cx
+
+	; [rem(H/N) * 65536 + L] / N
+	mov bx, ax		; 保存商
+	pop ax			; 取出低16位
+	div cx
+	mov dx, bx		; 将高位放回dx
+	
+	; 保存结果到ds中
+	mov word ptr ds:[0], ax
+	mov word ptr ds:[2], dx
+
+	ret
 
 
-	mov ah, cl				; 保存颜色属性
-putChar:
-	mov ch, 0
-	mov cl, ds:[si]			; 获取要输出的字符
-	jcxz retFunc			; 如果cx为0，那么就说明到了字符串的结束，返回函数
-
-	mov es:[bx], cl			; 显示字符
-	mov es:[bx+1], ah		; 显示颜色属性
-	inc si
-	add bx, 2
-	jmp short putChar
 
 
-retFunc:
+
+
+
 	ret
 
 code ends
