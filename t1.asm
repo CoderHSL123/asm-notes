@@ -29,8 +29,10 @@ start:
 	; 3.调用子程序
 	call letterc
 
+	; 4.显示字符串
+	call show_string
 
-	; 4.退出程序
+	; 5.退出程序
 	mov ax,4c00H
 	int 21h
 
@@ -39,6 +41,10 @@ start:
 init_reg:
 	mov ax, data
 	mov ds, ax
+
+	mov ax, 0B800H
+	mov es, ax
+
 
 	mov si, 0
 
@@ -74,6 +80,25 @@ retFunc:
 
 	; 退出子程序
 	ret
+
+
+show_string:
+	; 从屏幕的开始显示字符串
+	mov di, 0
+	mov ch, 00000010b
+	mov si, 0
+	
+putChar:
+	; 从ds中取出字符然后将其显示在屏幕上
+	mov cl, ds:[si]
+	; 判断该字符是否是结束符
+	cmp cl, 0
+	je retFunc
+	mov es:[di], cx
+	add di, 2
+	inc si
+	jmp short putChar
+
 
 
 code ends
